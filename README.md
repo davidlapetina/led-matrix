@@ -42,7 +42,7 @@ ledpanel-web --assets ~/my-assets      # use another assets folder (see Assets b
 ledpanel-web --host 0.0.0.0 --port 8765   # reachable from other devices on your network
 ```
 
-Click **Scan**, pick your panel and click **Connect**. Enter the PIN first if your panel has one. Power and brightness are in the top bar. If the Bluetooth link drops, the UI reconnects on your next action. The tabs are:
+Click **Scan**, pick your panel and click **Connect**. Enter the PIN first if your panel has one. Power and brightness are in the top bar. If the Bluetooth link drops, the UI reconnects on your next action. The last panel you connected is remembered in `~/.ledpanel/panel.json`, with its PIN, readable only by you. The server reconnects to it when it starts, and **Disconnect** forgets it. The tabs are:
 - **Text**: per-letter colours with a live preview, effects (fixed, scroll, blink, …), gradients and inline emoji.
 - **Animated text**: text that scrolls or blinks over a background animation, with a border and emoji, rendered at full quality as a GIF.
 - **Images & GIFs**: drag and drop any picture (PNG, JPEG, WebP, BMP, GIF, animated WebP/APNG). Pick *contain*, *cover* or *stretch* to fit the panel. Below that is a gallery of your own animations.

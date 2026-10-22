@@ -8,8 +8,10 @@ import base64
 import datetime as dt
 import functools
 import io
+import json
 import logging
 import mimetypes
+import os
 from pathlib import Path
 
 from aiohttp import web
@@ -25,13 +27,19 @@ from ..render import (WEATHER_PAGES, animation_gif, encode_gif, score_card, scro
 from ..text import Span, TextEffect
 
 log = logging.getLogger(__name__)
+
+
+def default_panel_file() -> Path:
+    """Where the last connected panel is remembered, so a restart reconnects to it."""
+    return Path(os.environ.get("LEDPANEL_PANEL_FILE") or Path.home() / ".ledpanel" / "panel.json")
 STATIC = Path(__file__).with_name("static")
 
 
 class State:
-    def __init__(self, assets: Assets):
+    def __init__(self, assets: Assets, panel_file: Path | None = None):
         self.led: LedPanel | None = None
         self.assets = assets
+        self.panel_file = panel_file
         self.lock = asyncio.Lock()
         self.follow: asyncio.Task | None = None
         self.follow_info: dict | None = None
@@ -43,9 +51,35 @@ class State:
             self.follow.cancel()
         self.follow, self.follow_info = None, None
 
+    def remember(self, address: str | None, pin: str | None = None) -> None:
+        if not self.panel_file:
+            return
+        if address is None:
+            self.panel_file.unlink(missing_ok=True)
+            return
+        self.panel_file.parent.mkdir(parents=True, exist_ok=True)
+        self.panel_file.write_text(json.dumps({"address": address, "pin": pin}))
+        self.panel_file.chmod(0o600)   # it may hold the panel's PIN
+
+    def remembered(self) -> dict | None:
+        try:
+            return json.loads(self.panel_file.read_text()) if self.panel_file else None
+        except (OSError, ValueError):
+            return None
+
     async def relink(self) -> bool:
-        """Reconnect a panel whose Bluetooth link dropped; True if it had to."""
-        if self.led is None or self.led.is_connected:
+        """Reconnect a panel whose Bluetooth link dropped, or the remembered panel when
+        none is connected yet (e.g. after a restart); True if it connected."""
+        if self.led is None:
+            saved = self.remembered()
+            if not saved:
+                return False
+            log.info("connecting to the remembered panel %s", saved["address"])
+            led = LedPanel(saved["address"], pin=saved.get("pin") or None)
+            await led.connect()
+            self.led = led
+            return True
+        if self.led.is_connected:
             return False
         log.warning("panel link lost, reconnecting")
         await self.led.connect()
@@ -53,7 +87,7 @@ class State:
 
     def need(self) -> LedPanel:
         if self.led is None:
-            raise web.HTTPConflict(text="not connected")
+            raise web.HTTPConflict(text="Not connected to a panel: click Scan, pick it, then Connect")
         return self.led
 
 
@@ -121,7 +155,7 @@ def api(handler, *, relink: bool = True, screen: bool = False, ble: bool = True)
                 result = await handler(request, state)
         except web.HTTPException:
             raise
-        except (*LINK_ERRORS, ValueError, KeyError, OSError) as e:
+        except Exception as e:  # always answer with a message the page can show
             log.exception("request failed")
             return web.json_response({"error": f"{type(e).__name__}: {e}"}, status=500)
         if isinstance(result, web.StreamResponse):
@@ -152,6 +186,7 @@ async def connect(request, state):
     led = LedPanel(body["address"], pin=body.get("pin") or None)
     await led.connect()
     state.led = led
+    state.remember(body["address"], body.get("pin") or None)
     return await status_dict(state)
 
 
@@ -160,6 +195,7 @@ async def disconnect(request, state):
     if state.led:
         await state.led.disconnect()
     state.led = None
+    state.remember(None)   # an explicit disconnect also stops reconnecting after a restart
 
 
 async def status_dict(state: State) -> dict:
@@ -624,11 +660,26 @@ async def index(request: web.Request) -> web.FileResponse:
 
 
 STATE: web.AppKey["State"] = web.AppKey("state")
+AUTOCONNECT: web.AppKey[asyncio.Task] = web.AppKey("autoconnect")
 
 
-def make_app(assets_dir: str | Path | None = None) -> web.Application:
+async def _connect_remembered(app: web.Application) -> None:
+    state = app[STATE]
+
+    async def go():
+        try:
+            async with state.lock:
+                await state.relink()
+        except Exception as e:  # panel off or out of range: the next command tries again
+            log.warning("could not reach the remembered panel: %s", e)
+    app[AUTOCONNECT] = asyncio.create_task(go())
+
+
+def make_app(assets_dir: str | Path | None = None, panel_file: Path | None = None) -> web.Application:
     app = web.Application(client_max_size=32 * 1024 * 1024)
-    app[STATE] = State(Assets(assets_dir) if assets_dir else Assets())
+    app[STATE] = State(Assets(assets_dir) if assets_dir else Assets(),
+                       panel_file or default_panel_file())
+    app.on_startup.append(_connect_remembered)
     r = app.router
     r.add_get("/", index)
     r.add_get("/api/status", status)

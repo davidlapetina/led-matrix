@@ -433,8 +433,9 @@ async function api(path, body, opts = {}) {
   if (opts.raw) { if (!r.ok) throw new Error(await r.text()); return r; }
   const data = await r.json().catch(async () => ({ error: await r.text() }));
   if (!r.ok || data.error) {
-    if (!opts.quiet) { toast(data.error || r.statusText, true); refreshStatus(); }
-    throw new Error(data.error);
+    const msg = data.error || r.statusText || `HTTP ${r.status}`;
+    if (!opts.quiet) { toast(msg, true); refreshStatus(); }
+    throw new Error(msg);
   }
   return data;
 }
@@ -661,8 +662,10 @@ async function sendFile(f) {
   const fd = new FormData(); fd.append("file", f); fd.append("fit", $("#fit").value);
   if ($("#mediaSlot").value) fd.append("slot", $("#mediaSlot").value);
   drop.textContent = `Uploading ${f.name}…`;
-  try { await api("media", fd); toast(`${f.name} sent`); } catch {}
-  drop.innerHTML = `Drop a picture (PNG, JPEG, WebP, BMP…) or an animation (GIF, animated WebP/PNG), or click to choose<input type="file" id="file" accept="image/*" hidden>`;
+  let note = "";
+  try { await api("media", fd); toast(`${f.name} sent`); note = `<div class="small" style="color:var(--ok)">✓ ${esc(f.name)} sent</div>`; }
+  catch (e) { note = `<div class="small" style="color:var(--bad)">✗ ${esc(f.name)} failed: ${esc(e.message || "unknown error")}</div>`; }
+  drop.innerHTML = `Drop a picture (PNG, JPEG, WebP, BMP…) or an animation (GIF, animated WebP/PNG), or click to choose${note}<input type="file" id="file" accept="image/*" hidden>`;
   $("#file").onchange = e => e.target.files[0] && sendFile(e.target.files[0]);
 }
 

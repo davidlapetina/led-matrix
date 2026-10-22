@@ -28,7 +28,7 @@ def test_index_and_status_without_panel():
 def test_commands_need_a_connection():
     async def check(c):
         r = await c.post("/api/brightness", json={"level": 50})
-        assert r.status == 409 and await r.text() == "not connected"
+        assert r.status == 409 and (await r.text()).startswith("Not connected to a panel")
     run(check)
 
 
@@ -170,4 +170,44 @@ def test_animations_of_another_size_are_converted_before_sending():
             assert (await c.post("/api/asset_gif", json={"name": "blink@64x20.gif"})).status == 200
             assert (await c.post("/api/asset_gif", json={"name": "../x.gif"})).status >= 400
         assert panel.sent == [((64, 20), 1), ((64, 20), 2)]
+    asyncio.run(go())
+
+
+def test_remembered_panel_reconnects_after_a_restart(tmp_path, monkeypatch):
+    """After a server restart the last panel is reconnected on the next command, instead
+    of every upload failing with 'not connected'."""
+    from ledpanel.web import server
+    connected = []
+
+    class FakePanel:
+        def __init__(self, address, pin=None):
+            from ledpanel.protocol import DeviceInfo
+            self.address, self.pin, self.is_connected, self.hw = address, pin, False, None
+            self.info = DeviceInfo(0x85, 5, 64, 20, 4096, 16, False, b"")
+
+        async def connect(self):
+            self.is_connected = True
+            connected.append((self.address, self.pin))
+
+        async def disconnect(self):
+            self.is_connected = False
+
+        async def clear(self):
+            pass
+
+    monkeypatch.setattr(server, "LedPanel", FakePanel)
+    panel_file = tmp_path / "panel.json"
+
+    async def go():
+        async with TestClient(TestServer(server.make_app(panel_file=panel_file))) as c:
+            assert (await c.post("/api/clear")).status == 409          # nothing remembered yet
+            await c.post("/api/connect", json={"address": "AA:BB", "pin": "1234"})
+        assert panel_file.stat().st_mode & 0o077 == 0                     # private: may hold the PIN
+        connected.clear()
+        async with TestClient(TestServer(server.make_app(panel_file=panel_file))) as c:   # "restart"
+            await asyncio.sleep(0.05)                                    # startup auto-connect
+            assert connected == [("AA:BB", "1234")]
+            assert (await c.post("/api/clear")).status == 200
+            await c.post("/api/disconnect")
+        assert not panel_file.exists()                                   # disconnect forgets it
     asyncio.run(go())

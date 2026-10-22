@@ -1,4 +1,4 @@
-"""Every test reads a small generated assets folder, never the user's own."""
+"""Every test reads a small generated assets folder and panel file, never the user's own."""
 
 import pytest
 from PIL import Image, ImageDraw
@@ -37,3 +37,4 @@ def assets_dir(tmp_path_factory):
 @pytest.fixture(autouse=True)
 def _use_test_assets(assets_dir, monkeypatch):
     monkeypatch.setenv("LEDPANEL_ASSETS", str(assets_dir))
+    monkeypatch.setenv("LEDPANEL_PANEL_FILE", str(assets_dir.parent / "no-panel.json"))   # never ~/.ledpanel
