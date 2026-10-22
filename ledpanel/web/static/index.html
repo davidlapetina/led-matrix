@@ -1,0 +1,916 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LED Panel Studio</title>
+<style>
+:root {
+  --bg: #0e1015; --panel: #161922; --panel-2: #1d212c; --line: #2a2f3c;
+  --text: #e7e9ee; --muted: #8b92a3; --accent: #7c5cff; --accent-2: #22d3ee;
+  --ok: #34d399; --warn: #fbbf24; --bad: #f87171; --radius: 14px;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--bg); color: var(--text); }
+button, input, select { font: inherit; color: inherit; }
+header { position: sticky; top: 0; z-index: 5; display: flex; gap: 12px; align-items: center;
+  flex-wrap: wrap; padding: 12px 20px; background: rgba(14,16,21,.9);
+  backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+.brand { font-weight: 700; font-size: 16px; letter-spacing: .3px; margin-right: 8px; }
+.brand span { background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text; background-clip: text; color: transparent; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
+  border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line); color: var(--muted); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--bad); }
+.dot.on { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+.dot.wait { background: var(--warn); }
+.spacer { flex: 1; }
+.layout { display: grid; grid-template-columns: 220px 1fr; min-height: calc(100vh - 60px); }
+nav { border-right: 1px solid var(--line); padding: 14px 10px; display: flex; flex-direction: column; gap: 2px; }
+nav button { text-align: left; background: none; border: 0; padding: 9px 12px; border-radius: 10px;
+  color: var(--muted); cursor: pointer; display: flex; gap: 10px; align-items: center; }
+nav button:hover { background: var(--panel); color: var(--text); }
+nav button.active { background: var(--panel-2); color: var(--text); box-shadow: inset 3px 0 0 var(--accent); }
+main { padding: 20px 24px 60px; max-width: 1100px; }
+section { display: none; } section.active { display: block; }
+h2 { margin: 0 0 4px; font-size: 20px; } .sub { color: var(--muted); margin: 0 0 18px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 16px; margin-bottom: 16px; }
+.card h3 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); }
+.row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.grid { display: grid; gap: 10px; }
+.g3 { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+.g5 { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+label.f { display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: 12px; }
+input[type=text], input[type=number], input[type=time], select {
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; min-width: 0; }
+input[type=text]:focus, select:focus, input[type=number]:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+input[type=color] { width: 40px; height: 36px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--panel-2); padding: 3px; cursor: pointer; }
+input[type=range] { accent-color: var(--accent); }
+.btn { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px;
+  cursor: pointer; transition: .15s; white-space: nowrap; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: linear-gradient(135deg, var(--accent), #5b3df5); border-color: transparent; font-weight: 600; }
+.btn.primary:hover { filter: brightness(1.1); }
+.btn.danger:hover { border-color: var(--bad); color: var(--bad); }
+.btn.big { padding: 14px; font-size: 15px; }
+.btn.sel { border-color: var(--accent); background: rgba(124,92,255,.15); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.toggle { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; color: var(--muted); }
+.toggle input { accent-color: var(--accent); width: 16px; height: 16px; }
+/* panel preview */
+.stage { background: #050608; border-radius: 12px; padding: 14px; overflow: hidden; border: 1px solid var(--line); }
+.stage canvas, .stage img { image-rendering: pixelated; display: block; }
+.led { width: 100%; height: auto; }
+/* letters */
+.letters { display: flex; flex-wrap: wrap; gap: 4px; min-height: 40px; padding: 8px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; }
+.letter { min-width: 26px; height: 32px; display: grid; place-items: center; border-radius: 6px;
+  font-weight: 700; cursor: pointer; background: #0b0d12; border: 1px solid transparent; user-select: none; }
+.letter:hover { border-color: var(--muted); }
+.letter img { width: 22px; height: 22px; image-rendering: pixelated; }
+.swatches { display: flex; gap: 6px; flex-wrap: wrap; }
+.sw { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--line); cursor: pointer; }
+.sw.sel { border-color: #fff; }
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.tile { background: #050608; border: 1px solid var(--line); border-radius: 10px; padding: 8px; cursor: pointer; }
+.tile:hover, .tile.sel { border-color: var(--accent); }
+.tile img { width: 100%; image-rendering: pixelated; display: block; }
+.games { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.game { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; cursor: pointer; }
+.game:hover, .game.sel { border-color: var(--accent); }
+.game .teams { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; }
+.game .team { display: flex; align-items: center; gap: 8px; font-weight: 600; min-width: 0; }
+.game .team.r { flex-direction: row-reverse; text-align: right; }
+.game .team img { width: 30px; height: 30px; object-fit: contain; }
+.game .mid { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.game .meta { color: var(--muted); font-size: 12px; margin-top: 6px; display: flex; justify-content: space-between; }
+.live { color: var(--bad); font-weight: 700; }
+.emoji-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(34px, 1fr)); gap: 4px;
+  max-height: 180px; overflow: auto; }
+.emoji-grid img { width: 32px; height: 32px; image-rendering: pixelated; cursor: pointer; border-radius: 6px;
+  border: 1px solid transparent; } .emoji-grid img:hover { border-color: var(--accent); }
+.drop { border: 2px dashed var(--line); border-radius: 12px; padding: 30px; text-align: center; color: var(--muted); cursor: pointer; }
+.drop.over { border-color: var(--accent); color: var(--text); }
+.score { display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: center; text-align: center; }
+.score .num { font-size: 56px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.days { display: flex; gap: 4px; } .days label { padding: 6px 9px; border-radius: 8px; background: var(--panel-2);
+  border: 1px solid var(--line); cursor: pointer; font-size: 12px; } .days input { display: none; }
+.days input:checked + span { color: var(--accent-2); font-weight: 700; }
+#draw { cursor: crosshair; touch-action: none; width: 100%; height: auto; }
+.bars { display: flex; gap: 4px; align-items: flex-end; height: 80px; }
+.bars div { flex: 1; background: linear-gradient(var(--accent-2), var(--accent)); border-radius: 3px 3px 0 0; }
+#toast { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 10; }
+.t { background: var(--panel-2); border: 1px solid var(--line); border-left: 4px solid var(--ok);
+  padding: 10px 14px; border-radius: 10px; max-width: 380px; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+.t.err { border-left-color: var(--bad); }
+.muted { color: var(--muted); } .small { font-size: 12px; }
+@media (max-width: 760px) {
+  .layout { grid-template-columns: 1fr; }
+  nav { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+  nav button { white-space: nowrap; }
+  main { padding: 16px; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">LED Panel <span>Studio</span></div>
+  <span class="chip"><span id="dot" class="dot"></span><span id="status">Disconnected</span></span>
+  <select id="devices"><option value="">No device — scan first</option></select>
+  <input id="pin" type="text" placeholder="PIN (optional)" size="9">
+  <button class="btn" id="scanBtn">Scan</button>
+  <button class="btn primary" id="connectBtn">Connect</button>
+  <div class="spacer"></div>
+  <span class="chip" id="liveChip" style="display:none"><span class="live">● LIVE</span><span id="liveLabel"></span>
+    <button class="btn" id="liveStop" style="padding:2px 10px">Stop</button></span>
+  <button class="btn" id="clearBtn" title="Blank the screen">⬛ Clear screen</button>
+  <label class="toggle" title="Power"><input type="checkbox" id="power" checked> Power</label>
+  <label class="toggle" title="Brightness">☀ <input type="range" id="bright" min="0" max="100" value="100"></label>
+</header>
+
+<div class="layout">
+<nav id="nav">
+  <button data-s="text" class="active">✍️ Text</button>
+  <button data-s="anim">🎞️ Animated text</button>
+  <button data-s="media">🖼️ Images & GIFs</button>
+  <button data-s="draw">🎨 Draw</button>
+  <button data-s="clock">⏱️ Clock & timers</button>
+  <button data-s="music">🎵 Music</button>
+  <button data-s="score">🏆 Scoreboard</button>
+  <button data-s="sports">🏀 Live sports</button>
+  <button data-s="weather">⛅ Weather</button>
+  <button data-s="ride">🚲 Riding</button>
+  <button data-s="remote">🎮 Remote</button>
+  <button data-s="sched">⏰ Alarms & schedule</button>
+  <button data-s="store">💾 Storage</button>
+  <button data-s="device">⚙️ Device</button>
+</nav>
+
+<main>
+<!-- TEXT -->
+<section id="text" class="active">
+  <h2>Text</h2><p class="sub">Type, then click letters to paint them with the brush colour.</p>
+  <div class="card">
+    <div class="stage"><img id="textPreview" class="led" alt=""></div>
+  </div>
+  <div class="card">
+    <div class="row" style="margin-bottom:10px">
+      <input id="txt" type="text" value="hello Bao" style="flex:1;min-width:220px" maxlength="400">
+      <input id="brush" type="color" value="#ffffff" title="Brush colour">
+      <button class="btn" id="paintAll">Paint all</button>
+      <button class="btn" id="rainbowBtn">🌈 Rainbow</button>
+    </div>
+    <div class="swatches" id="swatches" style="margin-bottom:10px"></div>
+    <div class="letters" id="letters"></div>
+    <details id="emojiBox" style="margin-top:10px"><summary class="muted">Insert emoji icon</summary>
+      <div class="emoji-grid" id="emojiGrid" style="margin-top:8px"></div></details>
+  </div>
+  <div class="card"><h3>Effect</h3>
+    <div class="grid g5" id="effects"></div>
+    <div class="row" style="margin-top:14px">
+      <label class="f" style="flex:1">Speed <input type="range" id="speed" min="1" max="100" value="65"></label>
+      <label class="toggle"><input type="checkbox" id="vertical"> Vertical text</label>
+    </div>
+  </div>
+  <div class="card"><h3>Style</h3>
+    <div class="row">
+      <label class="f">Gradient preset <select id="gradient"><option value="">None (use letter colours)</option>
+        <option>1</option><option>2</option><option>3</option><option>4</option>
+        <option>5</option><option>6</option><option>7</option><option>8</option></select></label>
+      <label class="f">Background <span class="row"><input type="checkbox" id="bgOn"><input type="color" id="bgColor" value="#202060"></span></label>
+      <label class="f">Horizontal <select id="hAlign"><option value="0">Left</option><option value="1">Center</option><option value="2">Right</option></select></label>
+      <label class="f">Vertical <select id="vAlign"><option value="0">Top</option><option value="1">Center</option><option value="2">Bottom</option></select></label>
+      <label class="f">Save to slot <input type="number" id="textSlot" min="1" max="100" placeholder="show only" style="width:110px"></label>
+    </div>
+  </div>
+  <button class="btn primary big" id="sendText" style="width:100%">Send text to panel</button>
+</section>
+
+<!-- ANIMATED TEXT -->
+<section id="anim">
+  <h2>Animated text</h2><p class="sub">Rendered here as an animation, so effects can be combined — scroll + blink, backgrounds, borders.</p>
+  <div class="card"><div class="stage"><img id="animPreview" class="led" alt=""></div>
+    <p class="small muted" style="margin:8px 0 0">Preview uses the letters and colours from the Text tab.</p></div>
+  <div class="card"><div class="row">
+    <label class="f">Direction <select id="animDir"><option value="left">Scroll left</option><option value="right">Scroll right</option><option value="none">Static</option></select></label>
+    <label class="f">Blink every (frames) <input type="number" id="animBlink" min="0" max="60" value="8" style="width:100px"></label>
+    <label class="f">Frame delay (ms) <input type="number" id="animDelay" min="20" max="400" value="60" style="width:100px"></label>
+    <label class="f">Step (px) <input type="number" id="animStep" min="1" max="8" value="1" style="width:80px"></label>
+  </div></div>
+  <div class="card"><h3>Background animation</h3><div class="gallery" id="bgGallery"></div></div>
+  <div class="card"><h3>Border</h3><div class="gallery" id="borderGallery"></div></div>
+  <button class="btn primary big" id="sendAnim" style="width:100%">Render & send</button>
+</section>
+
+<!-- MEDIA -->
+<section id="media">
+  <h2>Images & GIFs</h2><p class="sub">Any common picture or animation format; it is fitted to the panel automatically.</p>
+  <div class="card">
+    <div class="drop" id="drop">Drop a picture (PNG, JPEG, WebP, BMP…) or an animation (GIF, animated WebP/PNG), or click to choose<input type="file" id="file" accept="image/*" hidden></div>
+    <div class="row" style="margin-top:12px">
+      <label class="f">Fit to panel <select id="fit">
+        <option value="contain">Whole picture (black bars)</option>
+        <option value="cover">Fill panel (crop edges)</option>
+        <option value="stretch">Stretch</option></select></label>
+      <label class="f">Save to slot <input type="number" id="mediaSlot" min="1" max="100" placeholder="show only" style="width:110px"></label>
+    </div>
+  </div>
+  <div class="card"><h3>Your animations</h3><div class="gallery" id="animGallery"></div></div>
+</section>
+
+<!-- DRAW -->
+<section id="draw">
+  <h2>Draw</h2><p class="sub">Paint pixel by pixel. With “Live” on, every stroke appears on the panel instantly.</p>
+  <div class="card"><div class="stage"><canvas id="drawCanvas" class="led"></canvas></div></div>
+  <div class="card"><div class="row">
+    <input type="color" id="pen" value="#ff3366">
+    <div class="swatches" id="penSwatches"></div>
+    <button class="btn sel" data-tool="pen">✏️ Pen</button>
+    <button class="btn" data-tool="erase">🧽 Eraser</button>
+    <button class="btn" data-tool="fill">🪣 Fill</button>
+    <button class="btn danger" id="clearDraw">Clear</button>
+    <div class="spacer"></div>
+    <label class="toggle"><input type="checkbox" id="live" checked> Live</label>
+    <button class="btn primary" id="sendDraw">Send as image</button>
+  </div></div>
+</section>
+
+<!-- CLOCK -->
+<section id="clock">
+  <h2>Clock & timers</h2><p class="sub">Built-in modes run on the panel itself.</p>
+  <div class="card"><h3>Clock</h3><div class="row">
+    <label class="f">Style <select id="clockStyle"></select></label>
+    <label class="toggle"><input type="checkbox" id="h24" checked> 24-hour</label>
+    <label class="toggle"><input type="checkbox" id="showDate" checked> Show date</label>
+    <button class="btn primary" id="sendClock">Show clock</button>
+  </div></div>
+  <div class="card"><h3>Countdown</h3><div class="row">
+    <label class="f">Minutes <input type="number" id="cdMin" min="0" max="90" value="5" style="width:90px"></label>
+    <label class="f">Seconds <input type="number" id="cdSec" min="0" max="59" value="0" style="width:90px"></label>
+    <button class="btn primary" data-cd="START">▶ Start</button>
+    <button class="btn" data-cd="PAUSE">⏸ Pause</button>
+    <button class="btn" data-cd="RESUME">⏯ Resume</button>
+    <button class="btn" data-cd="RESET">⟲ Reset</button>
+  </div></div>
+  <div class="card"><h3>Stopwatch</h3><div class="row">
+    <button class="btn primary" data-sw="START">▶ Start</button>
+    <button class="btn" data-sw="PAUSE">⏸ Pause</button>
+    <button class="btn" data-sw="RESUME">⏯ Resume</button>
+    <button class="btn" data-sw="RESET">⟲ Reset</button>
+  </div></div>
+</section>
+
+<!-- MUSIC -->
+<section id="music">
+  <h2>Music</h2><p class="sub">Spectrum bars driven by your computer's microphone, or the panel's built-in rhythm animation.</p>
+  <div class="card"><h3>Microphone spectrum</h3>
+    <div class="bars" id="bars"></div>
+    <div class="row" style="margin-top:12px">
+      <label class="f">Style <select id="specStyle"><option value="0">Style 1</option><option value="1">Style 2</option>
+        <option value="2">Style 3</option><option value="3">Style 4</option><option value="4">Style 5</option></select></label>
+      <label class="f" style="flex:1">Sensitivity <input type="range" id="gain" min="1" max="40" value="12"></label>
+      <button class="btn primary" id="micBtn">🎤 Start</button>
+    </div>
+  </div>
+  <div class="card"><h3>Built-in rhythm animation</h3><div class="row">
+    <label class="f">Mode <select id="rhyMode"><option value="0">Animation A</option><option value="1">Animation B</option></select></label>
+    <button class="btn primary" id="rhyBtn">▶ Start</button>
+  </div></div>
+</section>
+
+<!-- SCORE -->
+<section id="score">
+  <h2>Scoreboard</h2><p class="sub">Every change is sent instantly.</p>
+  <div class="card score">
+    <div><div class="num" id="sL">0</div><div class="row" style="justify-content:center">
+      <button class="btn" data-sc="L-1">−</button><button class="btn primary" data-sc="L+1">+1</button></div></div>
+    <div class="num muted">:</div>
+    <div><div class="num" id="sR">0</div><div class="row" style="justify-content:center">
+      <button class="btn" data-sc="R-1">−</button><button class="btn primary" data-sc="R+1">+1</button></div></div>
+  </div>
+  <button class="btn" id="scoreReset">Reset to 0 : 0</button>
+</section>
+
+<!-- SPORTS -->
+<section id="sports">
+  <h2>Live sports</h2><p class="sub">Today's games from ESPN. Pick one to show both team logos and the score; “Follow live” keeps it updated.</p>
+  <div class="card"><div class="row">
+    <div class="row" id="leagues"></div>
+    <div class="spacer"></div>
+    <input type="date" id="sportDate">
+    <button class="btn" id="sportRefresh">⟳ Refresh</button>
+  </div></div>
+  <div class="card"><div class="games" id="games"><p class="muted">Loading…</p></div></div>
+  <div class="card" id="gamePanel" style="display:none">
+    <div class="stage"><img id="gamePreview" class="led" alt=""></div>
+    <div class="row" style="margin-top:12px">
+      <label class="toggle"><input type="checkbox" id="followLive" checked> Follow live (checks every 30 s)</label>
+      <div class="spacer"></div>
+      <button class="btn primary" id="gameShow">Show on panel</button>
+    </div>
+  </div>
+</section>
+
+<!-- WEATHER -->
+<section id="weather">
+  <h2>Weather</h2><p class="sub">Live weather from Open-Meteo with a clock. The panel cycles through the pages you pick; the forecast refreshes every 5 minutes.</p>
+  <div class="card"><div class="row">
+    <input type="text" id="wxQuery" placeholder="Search a city…" style="flex:1;min-width:200px">
+    <button class="btn" id="wxSearch">Search</button>
+    <button class="btn" id="wxHere">📍 My location</button>
+  </div>
+  <div class="row" id="wxResults" style="margin-top:10px"></div></div>
+  <div id="wxPanel" style="display:none">
+    <div class="card">
+      <div class="row" style="align-items:flex-start">
+        <div style="flex:1;min-width:220px">
+          <div style="font-size:13px" class="muted" id="wxPlace"></div>
+          <div style="font-size:40px;font-weight:800" id="wxTemp"></div>
+          <div id="wxLabel"></div>
+        </div>
+        <div class="grid" style="grid-template-columns:repeat(2,auto);gap:4px 18px;font-size:13px" id="wxFacts"></div>
+      </div>
+    </div>
+    <div class="card"><div class="stage"><img id="wxPreview" class="led" alt=""></div>
+      <div class="row" style="margin-top:12px">
+        <label class="toggle"><input type="checkbox" class="wxPage" value="now" checked> Temperature</label>
+        <label class="toggle"><input type="checkbox" class="wxPage" value="time" checked> Clock</label>
+        <label class="toggle"><input type="checkbox" class="wxPage" value="details" checked> Rain & wind</label>
+        <label class="f">Units <select id="wxUnit"><option value="C">°C, km/h</option><option value="F">°F, mph</option></select></label>
+        <label class="toggle"><input type="checkbox" id="wxH24" checked> 24-hour</label>
+        <div class="spacer"></div>
+        <button class="btn primary" id="wxShow">Show live on panel</button>
+      </div></div>
+  </div>
+</section>
+
+<!-- RIDE -->
+<section id="ride">
+  <h2>Riding</h2><p class="sub">Turn signals and signs for a helmet or bike display.</p>
+  <div class="grid g3" id="rideBtns"></div>
+  <div class="card" style="margin-top:16px"><h3>Speedometer</h3><div class="row">
+    <label class="f">Speed (km/h) <input type="number" id="rideSpeed" min="0" max="255" step="0.1" value="25" style="width:120px"></label>
+    <button class="btn primary" id="rideSpeedBtn">Show speed</button>
+  </div></div>
+</section>
+
+<!-- REMOTE -->
+<section id="remote">
+  <h2>Remote</h2><p class="sub">The 20 built-in remote-control presets.</p>
+  <div class="grid g5" id="remoteBtns"></div>
+</section>
+
+<!-- SCHEDULE -->
+<section id="sched">
+  <h2>Alarms & schedule</h2><p class="sub">Alarms show a picture or animation; schedules switch the screen on or off.</p>
+  <div class="card"><h3>Alarm</h3>
+    <div class="row">
+      <label class="f">Alarm # <select id="alIdx"></select></label>
+      <label class="f">Time <input type="time" id="alTime" value="07:30"></label>
+      <label class="f">Show for <select id="alDur"><option value="10">10 s</option><option value="30">30 s</option>
+        <option value="60">1 min</option><option value="300">5 min</option><option value="900">15 min</option></select></label>
+      <label class="toggle"><input type="checkbox" id="alBuzz" checked> Buzzer</label>
+    </div>
+    <div class="days" id="alDays" style="margin:12px 0"></div>
+    <div class="row"><input type="file" id="alFile" accept="image/*"><button class="btn primary" id="alSend">Set alarm</button></div>
+  </div>
+  <div class="card"><h3>Screen on/off schedule</h3>
+    <div class="row">
+      <label class="f">Entry # <select id="tsIdx"></select></label>
+      <label class="f">Action <select id="tsOn"><option value="1">Turn on</option><option value="0">Turn off</option></select></label>
+      <label class="f">Time <input type="time" id="tsTime" value="22:00"></label>
+      <button class="btn primary" id="tsSend">Save schedule</button>
+    </div>
+    <div class="days" id="tsDays" style="margin-top:12px"></div>
+  </div>
+</section>
+
+<!-- STORAGE -->
+<section id="store">
+  <h2>Storage</h2><p class="sub">Content sent with a slot number is stored on the panel.</p>
+  <div class="card"><h3>Playlist</h3><div class="row">
+    <input type="text" id="plSlots" placeholder="e.g. 1,2,3" style="flex:1">
+    <button class="btn primary" id="plSend">Play these slots</button></div>
+    <p class="small muted">Experimental: the app always re-uploads before switching playlists.</p></div>
+  <div class="card"><h3>Delete</h3><div class="row">
+    <input type="text" id="delSlots" placeholder="slots, e.g. 4,5" style="flex:1">
+    <button class="btn danger" id="delSend">Delete slots</button>
+    <button class="btn danger" id="delAll">Delete everything</button></div></div>
+</section>
+
+<!-- DEVICE -->
+<section id="device">
+  <h2>Device</h2><p class="sub" id="devInfo">Not connected.</p>
+  <div class="card"><div class="row">
+    <label class="toggle"><input type="checkbox" id="flip"> Upside down</label>
+    <button class="btn" id="exitBtn">Exit current mode</button>
+    <button class="btn danger" id="disconnectBtn">Disconnect</button>
+  </div></div>
+</section>
+</main>
+</div>
+<div id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+let S = { connected: false, width: 64, height: 20, text_size: 16 };
+const PALETTE = ["#ffffff","#ff3b30","#ff9500","#ffcc00","#34c759","#00c7be","#007aff","#5856d6","#af52de","#ff2d55"];
+const RAINBOW = ["#ff0000","#ff7f00","#ffff00","#00ff00","#0000ff","#4b0082","#9400d3"];
+
+function toast(msg, err) {
+  const t = document.createElement("div"); t.className = "t" + (err ? " err" : ""); t.textContent = msg;
+  $("#toast").append(t); setTimeout(() => t.remove(), err ? 6000 : 2500);
+}
+async function api(path, body, opts = {}) {
+  const init = { method: opts.get ? "GET" : "POST" };
+  if (body instanceof FormData) init.body = body;
+  else if (body !== undefined) { init.body = JSON.stringify(body); init.headers = { "Content-Type": "application/json" }; }
+  const r = await fetch("/api/" + path, init);
+  if (opts.raw) { if (!r.ok) throw new Error(await r.text()); return r; }
+  const data = await r.json().catch(async () => ({ error: await r.text() }));
+  if (!r.ok || data.error) {
+    if (!opts.quiet) { toast(data.error || r.statusText, true); refreshStatus(); }
+    throw new Error(data.error);
+  }
+  return data;
+}
+// Live streams (draw, spectrum, rhythm): drop a tick while the previous one is still in flight.
+const busy = {};
+function stream(path, body) {
+  if (busy[path]) return; busy[path] = true;
+  api(path, body, { quiet: true }).catch(() => {}).finally(() => { busy[path] = false; });
+}
+async function act(path, body, okMsg) {
+  try { await api(path, body); if (okMsg) toast(okMsg); } catch {}
+}
+
+// ---------- navigation ----------
+$$("#nav button").forEach(b => b.onclick = () => {
+  $$("#nav button").forEach(x => x.classList.toggle("active", x === b));
+  $$("main section").forEach(s => s.classList.toggle("active", s.id === b.dataset.s));
+  if (b.dataset.s === "anim") renderAnimPreview();
+});
+
+// ---------- connection ----------
+function applyStatus(st) {
+  const sizeKey = `${S.width}x${S.height}x${S.text_size}`, first = !applyStatus.done;
+  S = { ...S, ...Object.fromEntries(Object.entries(st).filter(([, v]) => v !== null)),
+        connected: !!st.connected, paired: !!st.paired, following: st.following || null };
+  const lost = S.paired && !S.connected;  // link dropped: the server reconnects on the next command
+  $("#dot").classList.toggle("on", S.connected); $("#dot").classList.toggle("wait", lost);
+  $("#status").textContent = S.connected ? `${S.width}×${S.height} · fw ${S.firmware}`
+    : lost ? "Link lost — reconnects on next action" : "Disconnected";
+  $("#devInfo").textContent = S.connected
+    ? `Connected to ${S.address} — ${S.width}×${S.height} panel, firmware ${S.firmware}, text height ${S.text_size}px.`
+    : lost ? `Bluetooth link to ${S.address} dropped. The next command reconnects automatically.` : "Not connected.";
+  // Only rebuild size-dependent parts when the panel size changes, not on every poll.
+  if (first || sizeKey !== `${S.width}x${S.height}x${S.text_size}`) { setupDraw(); loadAssets(); renderTextPreview(); }
+  applyStatus.done = true;
+  showFollow();
+}
+async function refreshStatus() {
+  try { applyStatus(await api("status", undefined, { quiet: true, get: true })); } catch {}
+}
+$("#scanBtn").onclick = async () => {
+  $("#scanBtn").disabled = true; $("#scanBtn").textContent = "Scanning…";
+  try {
+    const list = await api("scan");
+    $("#devices").innerHTML = list.length ? list.map(d => `<option value="${d.address}">${d.name} · ${d.address.slice(0, 8)}</option>`).join("")
+      : `<option value="">No panel found</option>`;
+    toast(`${list.length} panel(s) found`);
+  } catch {} finally { $("#scanBtn").disabled = false; $("#scanBtn").textContent = "Scan"; }
+};
+$("#connectBtn").onclick = async () => {
+  const address = $("#devices").value; if (!address) return toast("Scan and pick a panel first", true);
+  $("#connectBtn").disabled = true; $("#connectBtn").textContent = "Connecting…";
+  try { applyStatus(await api("connect", { address, pin: $("#pin").value })); toast("Connected"); localStorage.setItem("addr", address); }
+  catch {} finally { $("#connectBtn").disabled = false; $("#connectBtn").textContent = "Connect"; }
+};
+$("#disconnectBtn").onclick = async () => { await act("disconnect"); applyStatus({ connected: false }); };
+$("#power").onchange = e => act("power", { on: e.target.checked });
+let brightTimer; $("#bright").oninput = e => { clearTimeout(brightTimer); brightTimer = setTimeout(() => act("brightness", { level: +e.target.value }), 150); };
+$("#flip").onchange = e => act("flip", { flipped: e.target.checked });
+$("#clearBtn").onclick = () => act("clear", undefined, "Screen cleared");
+$("#exitBtn").onclick = () => act("exit", undefined, "Done");
+
+// ---------- text editor ----------
+let chars = [];  // {ch, color} | {emoji}
+function syncChars() {
+  const s = [...$("#txt").value]; const old = chars.filter(c => !c.emoji); const next = [];
+  for (const c of chars) { if (c.emoji) next.push(c); }
+  chars = s.map((ch, i) => ({ ch, color: old[i] && old[i].ch === ch ? old[i].color : (old[i]?.color || $("#brush").value) }));
+  // keep emoji at the end of the text (inserted emoji are appended)
+  chars.push(...next);
+  drawLetters();
+}
+function drawLetters() {
+  $("#letters").innerHTML = "";
+  chars.forEach((c, i) => {
+    const el = document.createElement("div"); el.className = "letter";
+    if (c.emoji) { el.innerHTML = `<img src="/assets/emoji/${encodeURIComponent(emojiFile[c.emoji] || "")}">`; el.title = "click to remove"; }
+    else { el.textContent = c.ch === " " ? "␣" : c.ch; el.style.color = c.color; }
+    el.onclick = () => { if (c.emoji) chars.splice(i, 1); else c.color = $("#brush").value; drawLetters(); };
+    $("#letters").append(el);
+  });
+  renderTextPreview();
+}
+function segments() { return chars.map(c => c.emoji ? { emoji: c.emoji } : { text: c.ch, color: c.color }); }
+$("#txt").oninput = syncChars;
+$("#paintAll").onclick = () => { chars.forEach(c => { if (!c.emoji) c.color = $("#brush").value; }); drawLetters(); };
+$("#rainbowBtn").onclick = () => { let k = 0; chars.forEach(c => { if (!c.emoji && c.ch !== " ") c.color = RAINBOW[k++ % RAINBOW.length]; }); drawLetters(); };
+function swatches(el, input) {
+  el.innerHTML = ""; PALETTE.forEach(col => {
+    const d = document.createElement("div"); d.className = "sw"; d.style.background = col;
+    d.onclick = () => { input.value = col; $$("#" + el.id + " .sw").forEach(x => x.classList.toggle("sel", x === d)); };
+    el.append(d);
+  });
+}
+swatches($("#swatches"), $("#brush"));
+const EFFECTS = [["FIXED","▣ Fixed"],["MOVE_LEFT","⟵ Scroll left"],["MOVE_RIGHT","⟶ Scroll right"],["UP","↑ Up"],["DOWN","↓ Down"],
+  ["BLINK","✦ Blink"],["BREATHE","◐ Breathe"],["SNOWFLAKE","❄ Snowflake"],["LASER","⚡ Laser"]];
+let effect = "MOVE_LEFT";
+EFFECTS.forEach(([k, label]) => {
+  const b = document.createElement("button"); b.className = "btn" + (k === effect ? " sel" : ""); b.textContent = label;
+  b.onclick = () => { effect = k; $$("#effects .btn").forEach(x => x.classList.toggle("sel", x === b)); renderTextPreview(); };
+  $("#effects").append(b);
+});
+let prevTimer, prevAnim;
+function renderTextPreview() {
+  clearTimeout(prevTimer);
+  prevTimer = setTimeout(async () => {
+    const segs = segments();
+    if (!segs.length) { $("#textPreview").removeAttribute("src"); return; }
+    try {
+      const r = await api("preview/text", { segments: segs, background: $("#bgOn").checked ? $("#bgColor").value : null }, { raw: true });
+      const url = URL.createObjectURL(await r.blob()); const img = $("#textPreview");
+      img.onload = () => animatePreview(img); img.src = url;
+    } catch {}
+  }, 200);
+}
+function animatePreview(img) {
+  // Pixel-exact strip, cropped to the panel and animated like the chosen effect.
+  cancelAnimationFrame(prevAnim);
+  const cv = document.createElement("canvas"); cv.width = S.width; cv.height = S.height; cv.className = "led";
+  const ctx = cv.getContext("2d"); ctx.imageSmoothingEnabled = false;
+  const stage = $("#textPreview").parentElement; [...stage.querySelectorAll("canvas")].forEach(c => c.remove());
+  img.style.display = "none"; stage.append(cv);
+  const w = img.naturalWidth, speed = +$("#speed").value; let t0 = performance.now();
+  const loop = now => {
+    const t = (now - t0) / 1000, pps = 8 + speed * 0.6; ctx.fillStyle = "#000"; ctx.fillRect(0, 0, S.width, S.height);
+    let x = 0, y = 0, a = 1;
+    if (effect === "MOVE_LEFT") x = S.width - (t * pps) % (w + S.width);
+    if (effect === "MOVE_RIGHT") x = -w + (t * pps) % (w + S.width);
+    if (effect === "UP") y = S.height - (t * pps / 2) % (S.height * 2);
+    if (effect === "DOWN") y = -S.height + (t * pps / 2) % (S.height * 2);
+    if (effect === "BLINK") a = Math.floor(t * 2) % 2 ? 0 : 1;
+    if (effect === "BREATHE") a = 0.5 + 0.5 * Math.sin(t * 3);
+    ctx.globalAlpha = a; ctx.drawImage(img, Math.round(x), Math.round(y)); ctx.globalAlpha = 1;
+    prevAnim = requestAnimationFrame(loop);
+  };
+  prevAnim = requestAnimationFrame(loop);
+}
+["#speed", "#bgOn", "#bgColor"].forEach(s => $(s).addEventListener("input", renderTextPreview));
+$("#sendText").onclick = async () => {
+  if (!chars.length) return toast("Type some text first", true);
+  $("#sendText").disabled = true;
+  try {
+    await api("text", { segments: segments(), effect, speed: +$("#speed").value, vertical: $("#vertical").checked,
+      gradient: $("#gradient").value || null, background: $("#bgOn").checked ? $("#bgColor").value : null,
+      h_align: +$("#hAlign").value, v_align: +$("#vAlign").value, slot: $("#textSlot").value || null });
+    toast("Text sent");
+  } catch {} finally { $("#sendText").disabled = false; }
+};
+
+// ---------- assets ----------
+let assets = null, bgSel = "", borderSel = "", emojiFile = {};
+async function loadAssets() {
+  try { assets = await api("assets", undefined, { quiet: true }); } catch { assets = null; }
+  if (!assets) return;
+  $("#emojiGrid").innerHTML = ""; emojiFile = {};
+  if (!assets.emoji.length) $("#emojiGrid").innerHTML = emptyHint("emoji");
+  assets.emoji.forEach(e => {
+    emojiFile[e.name] = e.file;
+    const im = document.createElement("img"); im.src = `/assets/emoji/${encodeURIComponent(e.file)}`; im.loading = "lazy"; im.title = e.name;
+    im.onclick = () => { chars.push({ emoji: e.name }); drawLetters(); }; $("#emojiGrid").append(im);
+  });
+  gallery("#bgGallery", "backgrounds", assets.backgrounds, n => { bgSel = n; renderAnimPreview(); }, true);
+  gallery("#borderGallery", "borders", assets.borders, n => { borderSel = n; renderAnimPreview(); }, true);
+  gallery("#animGallery", "animations", assets.animations, n => act("asset_gif", { name: n }, "Animation sent"));
+  drawLetters();
+}
+function emptyHint(folder) {
+  return `<div class="muted small">Nothing here yet. Put images in <code>${esc(assets.root)}/${folder}/</code> and reload.</div>`;
+}
+function gallery(sel, folder, names, onPick, selectable) {
+  const el = $(sel); el.innerHTML = "";
+  if (!names.length) { el.innerHTML = emptyHint(folder); if (!selectable) return; }
+  if (selectable) names = ["", ...names];
+  names.forEach(n => {
+    const t = document.createElement("div"); t.className = "tile" + (selectable && !n ? " sel" : "");
+    t.innerHTML = n ? `<img loading="lazy" src="/assets/${folder}/${encodeURIComponent(n)}" title="${esc(n)}">` : `<div class="muted small" style="padding:6px">None</div>`;
+    t.onclick = () => { if (selectable) [...el.children].forEach(x => x.classList.toggle("sel", x === t)); onPick(n); };
+    el.append(t);
+  });
+}
+
+// ---------- animated text ----------
+function renderAnimPreview() {
+  // Lightweight preview: background + border + text strip, scrolled locally.
+  const stage = $("#animPreview").parentElement; [...stage.querySelectorAll("canvas")].forEach(c => c.remove());
+  const cv = document.createElement("canvas"); cv.width = S.width; cv.height = S.height; cv.className = "led";
+  $("#animPreview").style.display = "none"; stage.append(cv);
+  const ctx = cv.getContext("2d"); ctx.imageSmoothingEnabled = false;
+  const bg = new Image(), border = new Image(), strip = $("#textPreview");
+  if (bgSel) bg.src = `/assets/backgrounds/${encodeURIComponent(bgSel)}`; if (borderSel) border.src = `/assets/borders/${encodeURIComponent(borderSel)}`;
+  let frame = 0; clearInterval(renderAnimPreview.t);
+  renderAnimPreview.t = setInterval(() => {
+    if (!$("#anim").classList.contains("active")) return;
+    const step = +$("#animStep").value || 1, blink = +$("#animBlink").value, dir = $("#animDir").value, w = strip.naturalWidth || 1;
+    ctx.fillStyle = "#000"; ctx.fillRect(0, 0, S.width, S.height);
+    if (bgSel && bg.complete) ctx.drawImage(bg, 0, 0, S.width, S.height);
+    const travel = S.width + w; let x = (S.width - w) / 2;
+    if (dir === "left") x = S.width - (frame * step) % travel; if (dir === "right") x = -w + (frame * step) % travel;
+    if (!blink || frame % blink < blink / 2) ctx.drawImage(strip, Math.round(x), 0);
+    if (borderSel && border.complete) ctx.drawImage(border, 0, 0, S.width, S.height);
+    frame++;
+  }, Math.max(20, +$("#animDelay").value || 60));
+}
+["#animDir", "#animBlink", "#animDelay", "#animStep"].forEach(s => $(s).addEventListener("input", renderAnimPreview));
+$("#sendAnim").onclick = async () => {
+  const segs = segments(); if (!segs.length) return toast("Type text in the Text tab first", true);
+  $("#sendAnim").disabled = true; $("#sendAnim").textContent = "Rendering & uploading…";
+  try {
+    await api("animated_text", { segments: segs, direction: $("#animDir").value, blink: +$("#animBlink").value || null,
+      delay: +$("#animDelay").value, step: +$("#animStep").value, bg_asset: bgSel || null, border_asset: borderSel || null });
+    toast("Animation sent");
+  } catch {} finally { $("#sendAnim").disabled = false; $("#sendAnim").textContent = "Render & send"; }
+};
+
+// ---------- media ----------
+const drop = $("#drop");
+drop.onclick = () => $("#file").click();
+drop.ondragover = e => { e.preventDefault(); drop.classList.add("over"); };
+drop.ondragleave = () => drop.classList.remove("over");
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove("over"); if (e.dataTransfer.files[0]) sendFile(e.dataTransfer.files[0]); };
+$("#file").onchange = e => e.target.files[0] && sendFile(e.target.files[0]);
+async function sendFile(f) {
+  const fd = new FormData(); fd.append("file", f); fd.append("fit", $("#fit").value);
+  if ($("#mediaSlot").value) fd.append("slot", $("#mediaSlot").value);
+  drop.textContent = `Uploading ${f.name}…`;
+  try { await api("media", fd); toast(`${f.name} sent`); } catch {}
+  drop.innerHTML = `Drop a picture (PNG, JPEG, WebP, BMP…) or an animation (GIF, animated WebP/PNG), or click to choose<input type="file" id="file" accept="image/*" hidden>`;
+  $("#file").onchange = e => e.target.files[0] && sendFile(e.target.files[0]);
+}
+
+// ---------- draw ----------
+let grid = [], tool = "pen", drawing = false, liveTimer;
+function setupDraw() {
+  const cv = $("#drawCanvas"), scale = 12;
+  if (cv.width === S.width * scale && grid.length === S.width * S.height) return;
+  cv.width = S.width * scale; cv.height = S.height * scale;
+  grid = Array(S.width * S.height).fill("#000000"); paintGrid();
+}
+function paintGrid() {
+  const cv = $("#drawCanvas"), ctx = cv.getContext("2d"), sc = cv.width / S.width;
+  ctx.fillStyle = "#050608"; ctx.fillRect(0, 0, cv.width, cv.height);
+  grid.forEach((c, i) => { ctx.fillStyle = c === "#000000" ? "#11141b" : c;
+    ctx.fillRect((i % S.width) * sc + 1, Math.floor(i / S.width) * sc + 1, sc - 2, sc - 2); });
+}
+function cell(e) {
+  const cv = $("#drawCanvas"), r = cv.getBoundingClientRect();
+  const x = Math.floor((e.clientX - r.left) / r.width * S.width), y = Math.floor((e.clientY - r.top) / r.height * S.height);
+  return x >= 0 && y >= 0 && x < S.width && y < S.height ? y * S.width + x : -1;
+}
+function flood(i, color) {
+  const target = grid[i]; if (target === color) return; const st = [i];
+  while (st.length) { const k = st.pop(); if (grid[k] !== target) continue; grid[k] = color; const x = k % S.width;
+    if (x > 0) st.push(k - 1); if (x < S.width - 1) st.push(k + 1); if (k >= S.width) st.push(k - S.width); if (k + S.width < grid.length) st.push(k + S.width); }
+}
+function apply(e) {
+  const i = cell(e); if (i < 0) return;
+  if (tool === "fill") flood(i, $("#pen").value); else grid[i] = tool === "erase" ? "#000000" : $("#pen").value;
+  paintGrid(); if ($("#live").checked) queueLive();
+}
+function rgbBase64() {
+  const bytes = new Uint8Array(grid.length * 3);
+  grid.forEach((c, i) => { bytes[i * 3] = parseInt(c.slice(1, 3), 16); bytes[i * 3 + 1] = parseInt(c.slice(3, 5), 16); bytes[i * 3 + 2] = parseInt(c.slice(5, 7), 16); });
+  let s = ""; bytes.forEach(b => s += String.fromCharCode(b)); return btoa(s);
+}
+function queueLive() { if (liveTimer) return; liveTimer = setTimeout(() => { liveTimer = null; stream("frame", { rgb: rgbBase64() }); }, 120); }
+const dc = $("#drawCanvas");
+dc.onpointerdown = e => { drawing = true; dc.setPointerCapture(e.pointerId); apply(e); };
+dc.onpointermove = e => { if (drawing && tool !== "fill") apply(e); };
+dc.onpointerup = () => { drawing = false; };
+$$("[data-tool]").forEach(b => b.onclick = () => { tool = b.dataset.tool; $$("[data-tool]").forEach(x => x.classList.toggle("sel", x === b)); });
+$("#clearDraw").onclick = () => { grid.fill("#000000"); paintGrid(); if ($("#live").checked) queueLive(); };
+swatches($("#penSwatches"), $("#pen"));
+$("#sendDraw").onclick = async () => {
+  const cv = document.createElement("canvas"); cv.width = S.width; cv.height = S.height; const ctx = cv.getContext("2d");
+  grid.forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(i % S.width, Math.floor(i / S.width), 1, 1); });
+  const blob = await new Promise(r => cv.toBlob(r, "image/png")); const fd = new FormData(); fd.append("file", blob, "drawing.png");
+  try { await api("media", fd); toast("Drawing sent"); } catch {}
+};
+
+// ---------- clock & timers ----------
+for (let i = 1; i <= 8; i++) $("#clockStyle").insertAdjacentHTML("beforeend", `<option value="${i}">Style ${i}</option>`);
+$("#sendClock").onclick = () => act("clock", { style: +$("#clockStyle").value, hour_24: $("#h24").checked, show_date: $("#showDate").checked }, "Clock shown");
+$$("[data-cd]").forEach(b => b.onclick = () => act("countdown", { action: b.dataset.cd, minutes: +$("#cdMin").value, seconds: +$("#cdSec").value }, "Countdown: " + b.dataset.cd.toLowerCase()));
+$$("[data-sw]").forEach(b => b.onclick = () => act("stopwatch", { action: b.dataset.sw }, "Stopwatch: " + b.dataset.sw.toLowerCase()));
+
+// ---------- music ----------
+for (let i = 0; i < 11; i++) $("#bars").append(document.createElement("div"));
+let mic = null, micLoop = null;
+$("#micBtn").onclick = async () => {
+  if (mic) { clearInterval(micLoop); mic.getTracks().forEach(t => t.stop()); mic = null; $("#micBtn").textContent = "🎤 Start"; return; }
+  try {
+    mic = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const ac = new AudioContext(), an = ac.createAnalyser(); an.fftSize = 1024; ac.createMediaStreamSource(mic).connect(an);
+    const buf = new Uint8Array(an.frequencyBinCount); $("#micBtn").textContent = "⏹ Stop";
+    // 11 log-spaced bands between ~60 Hz and ~12 kHz
+    const edges = [...Array(12)].map((_, i) => Math.round(Math.exp(Math.log(2) + i * (Math.log(260) - Math.log(2)) / 11)));
+    micLoop = setInterval(() => {
+      an.getByteFrequencyData(buf); const g = +$("#gain").value / 10;
+      const bars = edges.slice(0, 11).map((e, i) => { let m = 0; for (let k = e; k < edges[i + 1]; k++) m = Math.max(m, buf[k] || 0); return Math.min(255, Math.round(m * g * 0.6)); });
+      [...$("#bars").children].forEach((d, i) => d.style.height = Math.max(4, bars[i] / 255 * 100) + "%");
+      stream("spectrum", { bars, style: +$("#specStyle").value });
+    }, 100);
+  } catch (e) { toast("Microphone unavailable: " + e.message, true); mic = null; }
+};
+let rhy = null;
+$("#rhyBtn").onclick = () => {
+  if (rhy) { clearInterval(rhy); rhy = null; $("#rhyBtn").textContent = "▶ Start"; return; }
+  let lv = 0; $("#rhyBtn").textContent = "⏹ Stop";
+  rhy = setInterval(() => stream("rhythm", { level: lv++ % 8, mode: +$("#rhyMode").value }), 100);
+};
+
+// ---------- scoreboard ----------
+let score = { L: 0, R: 0 };
+function sendScore() { $("#sL").textContent = score.L; $("#sR").textContent = score.R; act("scoreboard", { left: score.L, right: score.R }); }
+$$("[data-sc]").forEach(b => b.onclick = () => { const [side, d] = [b.dataset.sc[0], +b.dataset.sc.slice(1)]; score[side] = Math.max(0, Math.min(9999, score[side] + d)); sendScore(); });
+$("#scoreReset").onclick = () => { score = { L: 0, R: 0 }; sendScore(); };
+
+// ---------- live sports ----------
+let league = localStorage.getItem("league") || "nba", picked = null, sportsTimer;
+function localDate() { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); }
+$("#sportDate").value = localDate();
+async function loadLeagues() {
+  const list = await (await fetch("/api/sports/leagues")).json();
+  $("#leagues").innerHTML = "";
+  list.forEach(l => { const b = document.createElement("button"); b.className = "btn" + (l.key === league ? " sel" : "");
+    b.textContent = l.label; b.onclick = () => { league = l.key; localStorage.setItem("league", league);
+      $$("#leagues .btn").forEach(x => x.classList.toggle("sel", x === b)); loadGames(); };
+    $("#leagues").append(b); });
+}
+const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+async function loadGames() {
+  clearTimeout(sportsTimer);
+  let games;
+  try { games = await api("sports/games", { league, date: $("#sportDate").value }); }
+  catch { $("#games").innerHTML = `<p class="muted">Couldn't load games.</p>`; return; }
+  if (!games.length) { $("#games").innerHTML = `<p class="muted">No games on this date.</p>`; $("#gamePanel").style.display = "none"; return; }
+  $("#games").innerHTML = "";
+  games.forEach(g => {
+    const el = document.createElement("div"); el.className = "game" + (picked && picked.id === g.id ? " sel" : "");
+    const t = (x, r) => `<div class="team${r ? " r" : ""}"><img src="${esc(x.logo)}" alt=""><span title="${esc(x.name)}">${esc(x.abbr)}</span></div>`;
+    const when = new Date(g.start).toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" });
+    el.innerHTML = `<div class="teams">${t(g.left)}<div class="mid">${g.state === "pre" ? "vs" : `${esc(g.left.score)}–${esc(g.right.score)}`}</div>${t(g.right, true)}</div>
+      <div class="meta"><span class="${g.state === "in" ? "live" : ""}">${esc(g.detail)}</span><span>${when}</span></div>`;
+    el.onclick = () => { picked = g; $$("#games .game").forEach(x => x.classList.toggle("sel", x === el)); previewGame(); };
+    $("#games").append(el);
+  });
+  const fresh = picked && games.find(g => g.id === picked.id);
+  if (fresh && (fresh.text !== picked.text || fresh.detail !== picked.detail)) { picked = fresh; previewGame(); }
+  // Live games refresh every 20 s, otherwise every minute, while this tab is open.
+  if ($("#sports").classList.contains("active"))
+    sportsTimer = setTimeout(loadGames, games.some(g => g.state === "in") ? 20000 : 60000);
+}
+async function previewGame() {
+  $("#gamePanel").style.display = "";
+  try {
+    const r = await api("sports/preview", { league: picked.league, id: picked.id, date: $("#sportDate").value }, { raw: true });
+    $("#gamePreview").src = URL.createObjectURL(await r.blob());
+  } catch (e) { toast("Preview failed: " + e.message, true); }
+}
+$("#gameShow").onclick = async () => {
+  $("#gameShow").disabled = true;
+  try {
+    await api("sports/show", { league: picked.league, id: picked.id, date: $("#sportDate").value, follow: $("#followLive").checked });
+    toast($("#followLive").checked && picked.state !== "post" ? "Showing — following live" : "Score shown"); refreshStatus();
+  } catch {} finally { $("#gameShow").disabled = false; }
+};
+$("#sportRefresh").onclick = loadGames;
+$("#sportDate").onchange = () => { picked = null; $("#gamePanel").style.display = "none"; loadGames(); };
+function showFollow() {
+  $("#liveChip").style.display = S.following ? "" : "none";
+  if (S.following) $("#liveLabel").textContent = S.following.label;
+}
+$("#liveStop").onclick = async () => { await act("live/stop", undefined, "Live display stopped"); refreshStatus(); };
+document.querySelector('[data-s="sports"]').addEventListener("click", loadGames);
+loadLeagues();
+
+// ---------- weather ----------
+let place = JSON.parse(localStorage.getItem("wxPlace") || "null");
+try { const p = JSON.parse(localStorage.getItem("wxPrefs") || "{}");
+  if (p.unit) $("#wxUnit").value = p.unit; if (p.h24 !== undefined) $("#wxH24").checked = p.h24;
+  if (p.pages) $$(".wxPage").forEach(c => c.checked = p.pages.includes(c.value)); } catch {}
+function wxArgs() {
+  return { lat: place.lat, lon: place.lon, name: place.name, unit: $("#wxUnit").value, hour_24: $("#wxH24").checked,
+           pages: $$(".wxPage").filter(c => c.checked).map(c => c.value) };
+}
+function savePrefs() {
+  try { localStorage.setItem("wxPrefs", JSON.stringify({ unit: $("#wxUnit").value, h24: $("#wxH24").checked,
+    pages: $$(".wxPage").filter(c => c.checked).map(c => c.value) })); } catch {}
+}
+async function pickPlace(p) {
+  place = p; try { localStorage.setItem("wxPlace", JSON.stringify(p)); } catch {}
+  $("#wxResults").innerHTML = ""; $("#wxPanel").style.display = ""; loadWeather();
+}
+async function loadWeather() {
+  if (!place) return;
+  $("#wxPlace").textContent = place.label || place.name;
+  try {
+    const w = await api("weather/now", wxArgs()), u = w.unit === "F" ? "°F" : "°C";
+    $("#wxTemp").textContent = `${Math.round(w.temp)}${u}`;
+    $("#wxLabel").textContent = `${w.label} · feels like ${Math.round(w.feels_like)}${u}`;
+    const facts = [["High / low", `${Math.round(w.high)}° / ${Math.round(w.low)}°`], ["Rain chance", w.rain_chance == null ? "—" : `${w.rain_chance}%`],
+      ["Wind", `${Math.round(w.wind)} ${w.wind_unit}`], ["Humidity", `${w.humidity}%`], ["Sunrise / sunset", `${w.sunrise} / ${w.sunset}`], ["Local time", w.local_time]];
+    $("#wxFacts").innerHTML = facts.map(([k, v]) => `<span class="muted">${k}</span><b>${esc(String(v))}</b>`).join("");
+    const r = await api("weather/preview", wxArgs(), { raw: true });
+    $("#wxPreview").src = URL.createObjectURL(await r.blob());
+  } catch (e) { toast("Weather unavailable: " + e.message, true); }
+}
+async function searchPlaces() {
+  const q = $("#wxQuery").value.trim(); if (!q) return;
+  try {
+    const list = await api("weather/search", { q });
+    $("#wxResults").innerHTML = list.length ? "" : `<span class="muted">No place found.</span>`;
+    list.forEach(p => { const b = document.createElement("button"); b.className = "btn"; b.textContent = p.label;
+      b.onclick = () => pickPlace(p); $("#wxResults").append(b); });
+  } catch {}
+}
+$("#wxSearch").onclick = searchPlaces;
+$("#wxQuery").addEventListener("keydown", e => { if (e.key === "Enter") searchPlaces(); });
+$("#wxHere").onclick = () => {
+  if (!navigator.geolocation) return toast("Location isn't available in this browser", true);
+  navigator.geolocation.getCurrentPosition(
+    pos => pickPlace({ name: "Here", label: "My location", lat: pos.coords.latitude, lon: pos.coords.longitude }),
+    err => toast("Location denied: " + err.message, true), { timeout: 10000 });
+};
+["#wxUnit", "#wxH24"].forEach(s => $(s).addEventListener("change", () => { savePrefs(); loadWeather(); }));
+$$(".wxPage").forEach(c => c.addEventListener("change", () => { savePrefs(); loadWeather(); }));
+$("#wxShow").onclick = async () => {
+  if (!wxArgs().pages.length) return toast("Pick at least one page", true);
+  $("#wxShow").disabled = true;
+  try { await api("weather/show", wxArgs()); toast("Weather is live on the panel"); refreshStatus(); }
+  catch {} finally { $("#wxShow").disabled = false; }
+};
+document.querySelector('[data-s="weather"]').addEventListener("click", () => {
+  if (place) { $("#wxPanel").style.display = ""; loadWeather(); }
+});
+
+// ---------- riding ----------
+[["LEFT_TURN","⬅️ Left turn"],["RIGHT_TURN","➡️ Right turn"],["GO","🟢 Go"],["STOP","🛑 Stop"],["SOS","🆘 SOS"],["AUTO_FLASH","💡 Auto flash"]]
+  .forEach(([m, l]) => { const b = document.createElement("button"); b.className = "btn big"; b.textContent = l;
+    b.onclick = () => act("sport", { mode: m }, l); $("#rideBtns").append(b); });
+$("#rideSpeedBtn").onclick = () => act("sport", { mode: "SPEEDOMETER", speed: +$("#rideSpeed").value }, "Speed shown");
+
+// ---------- remote ----------
+for (let i = 1; i <= 20; i++) { const b = document.createElement("button"); b.className = "btn big"; b.textContent = "Preset " + i;
+  b.onclick = () => act("remote", { index: i }, "Preset " + i); $("#remoteBtns").append(b); }
+
+// ---------- schedule ----------
+function days(el) { ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].forEach((d, i) => el.insertAdjacentHTML("beforeend", `<label><input type="checkbox" value="${i + 1}"><span>${d}</span></label>`)); }
+function pickedDays(el) { return [...el.querySelectorAll("input:checked")].map(x => +x.value); }
+days($("#alDays")); days($("#tsDays"));
+for (let i = 0; i < 10; i++) { $("#alIdx").insertAdjacentHTML("beforeend", `<option>${i}</option>`); $("#tsIdx").insertAdjacentHTML("beforeend", `<option>${i}</option>`); }
+$("#alSend").onclick = async () => {
+  const f = $("#alFile").files[0]; if (!f) return toast("Choose an image or GIF for the alarm", true);
+  const [h, m] = $("#alTime").value.split(":"); const fd = new FormData();
+  Object.entries({ index: $("#alIdx").value, hour: h, minute: m, duration: $("#alDur").value, buzzer: $("#alBuzz").checked ? "1" : "0",
+    days: pickedDays($("#alDays")).join(",") }).forEach(([k, v]) => fd.append(k, v)); fd.append("file", f);
+  try { await api("alarm", fd); toast("Alarm set"); } catch {}
+};
+$("#tsSend").onclick = () => { const [h, m] = $("#tsTime").value.split(":");
+  act("timer_switch", { index: +$("#tsIdx").value, on: $("#tsOn").value === "1", hour: +h, minute: +m, days: pickedDays($("#tsDays")) }, "Schedule saved"); };
+
+// ---------- storage ----------
+const slots = s => s.split(/[,\s]+/).filter(Boolean).map(Number);
+$("#plSend").onclick = () => act("playlist", { slots: slots($("#plSlots").value) }, "Playlist sent");
+$("#delSend").onclick = () => act("delete_slots", { slots: slots($("#delSlots").value) }, "Slots deleted");
+$("#delAll").onclick = () => confirm("Delete all stored content on the panel?") && act("delete_all", undefined, "Everything deleted");
+
+// ---------- boot ----------
+(async () => {
+  syncChars();
+  try { applyStatus(await api("status", undefined, { quiet: true, get: true })); } catch { applyStatus({}); }
+  setInterval(refreshStatus, 4000);
+  const last = localStorage.getItem("addr");
+  if (last && !S.connected) $("#devices").innerHTML = `<option value="${last}">Last panel · ${last.slice(0, 8)}</option>`;
+})();
+</script>
+</body>
+</html>

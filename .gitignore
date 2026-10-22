@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+.pytest_cache/
+
+# Third-party app files and artwork are never published
+*.apk
+assets/
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store

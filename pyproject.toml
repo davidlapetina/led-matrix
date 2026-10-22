@@ -1,0 +1,27 @@
+[project]
+name = "ledpanel"
+version = "0.1.0"
+description = "Control Bluetooth LE LED matrix panels (LED_BLE protocol) from Python and a web UI"
+requires-python = ">=3.10"
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "David Lapetina" }]
+dependencies = ["bleak>=0.22", "Pillow>=10.1"]
+
+[project.optional-dependencies]
+test = ["pytest>=8", "aiohttp>=3.9"]
+web = ["aiohttp>=3.9"]
+
+[project.scripts]
+ledpanel = "ledpanel.__main__:main"
+ledpanel-web = "ledpanel.web.server:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["ledpanel", "ledpanel.web"]
+
+[tool.setuptools.package-data]
+"ledpanel.web" = ["static/*"]
